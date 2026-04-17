@@ -49,64 +49,69 @@ serve(async (req) => {
       supabase.from('gate_items').select('id, gate_id, label, checked, "order"'),
     ])
 
+    if (projectsRes.error) throw projectsRes.error
+    if (gatesRes.error) throw gatesRes.error
+    if (tasksRes.error) throw tasksRes.error
+    if (itemsRes.error) throw itemsRes.error
+
     const now = new Date().toISOString()
 
     // Helper to build BigQuery INSERT VALUES
     const toValues = (rows: any[], mapper: (r: any) => string) =>
       rows.map(mapper).join(',\n')
 
-    const sq = (v: string | null | undefined) => v ? `'${v.replace(/'/g, "\\'")}'` : 'NULL'
+    const sq = (v: string | null | undefined) => v ? `'${v.replace(/'/g, "''")}'` : 'NULL'
     const bool = (v: boolean) => v ? 'TRUE' : 'FALSE'
 
-    // Projects
+    // Projects — always DELETE (full refresh), then INSERT if data exists
+    await runBigQueryJob(token, bqProjectId, `DELETE FROM \`${bqProjectId}.linktask.projects\` WHERE TRUE`)
     if (projectsRes.data?.length) {
       const values = toValues(projectsRes.data, (p) =>
-        `('${p.id}', '${p.tenant_id}', ${sq(p.name)}, '${p.status}', ${p.current_gate}, '${p.created_at}', '${p.updated_at}', '${now}')`
+        `('${p.id}', '${p.tenant_id}', ${sq(p.name)}, '${p.status}', ${p.current_gate ?? 0}, '${p.created_at}', '${p.updated_at}', '${now}')`
       )
       await runBigQueryJob(token, bqProjectId, `
-        DELETE FROM \`${bqProjectId}.linktask.projects\` WHERE TRUE;
         INSERT INTO \`${bqProjectId}.linktask.projects\`
           (id, tenant_id, name, status, current_gate, created_at, updated_at, synced_at)
-        VALUES ${values};
+        VALUES ${values}
       `)
     }
 
     // Gates
+    await runBigQueryJob(token, bqProjectId, `DELETE FROM \`${bqProjectId}.linktask.gates\` WHERE TRUE`)
     if (gatesRes.data?.length) {
       const values = toValues(gatesRes.data, (g) =>
         `('${g.id}', '${g.project_id}', ${g.number}, ${sq(g.title)}, '${g.status}', ${sq(g.approved_at)}, '${g.created_at}', '${now}')`
       )
       await runBigQueryJob(token, bqProjectId, `
-        DELETE FROM \`${bqProjectId}.linktask.gates\` WHERE TRUE;
         INSERT INTO \`${bqProjectId}.linktask.gates\`
           (id, project_id, number, title, status, approved_at, created_at, synced_at)
-        VALUES ${values};
+        VALUES ${values}
       `)
     }
 
     // Tasks
+    await runBigQueryJob(token, bqProjectId, `DELETE FROM \`${bqProjectId}.linktask.tasks\` WHERE TRUE`)
     if (tasksRes.data?.length) {
       const values = toValues(tasksRes.data, (t) =>
         `('${t.id}', '${t.gate_id}', '${t.project_id}', ${sq(t.title)}, '${t.status}', ${sq(t.due_date)}, '${t.created_at}', '${now}')`
       )
       await runBigQueryJob(token, bqProjectId, `
-        DELETE FROM \`${bqProjectId}.linktask.tasks\` WHERE TRUE;
         INSERT INTO \`${bqProjectId}.linktask.tasks\`
           (id, gate_id, project_id, title, status, due_date, created_at, synced_at)
-        VALUES ${values};
+        VALUES ${values}
       `)
     }
 
     // Gate items
+    await runBigQueryJob(token, bqProjectId, `DELETE FROM \`${bqProjectId}.linktask.gate_items\` WHERE TRUE`)
     if (itemsRes.data?.length) {
       const values = toValues(itemsRes.data, (i) =>
-        `('${i.id}', '${i.gate_id}', ${sq(i.label)}, ${bool(i.checked)}, ${i.order}, '${now}')`
+        `('${i.id}', '${i.gate_id}', ${sq(i.label)}, ${bool(i.checked)}, ${i.order ?? 0}, '${now}')`
       )
       await runBigQueryJob(token, bqProjectId, `
-        DELETE FROM \`${bqProjectId}.linktask.gate_items\` WHERE TRUE;
         INSERT INTO \`${bqProjectId}.linktask.gate_items\`
           (id, gate_id, label, checked, item_order, synced_at)
-        VALUES ${values};
+        VALUES ${values}
       `)
     }
 
