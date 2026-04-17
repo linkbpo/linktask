@@ -35,7 +35,8 @@ serve(async (req) => {
     const sheetId = Deno.env.get('GOOGLE_SHEETS_ID')
     if (!sheetId) throw new Error('GOOGLE_SHEETS_ID not set')
 
-    const authHeader = req.headers.get('Authorization')!
+    const authHeader = req.headers.get('Authorization')
+    if (!authHeader) throw new Error('Missing Authorization header')
     const supabase = createClient(
       Deno.env.get('SUPABASE_URL')!,
       Deno.env.get('SUPABASE_ANON_KEY')!,
@@ -58,8 +59,8 @@ serve(async (req) => {
       ...(projects ?? []).map((p: any) => [
         p.name,
         p.status,
-        String(p.current_gate),
-        String(p.gates.filter((g: any) => g.status === 'approved').length),
+        p.current_gate != null ? String(p.current_gate) : '',
+        String((p.gates ?? []).filter((g: any) => g.status === 'approved').length),
         now,
       ]),
     ]
