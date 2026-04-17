@@ -2,6 +2,7 @@ import { useGate } from '../hooks/useGate'
 import { useParams, Link } from 'react-router-dom'
 import ChecklistCard from '../components/gates/ChecklistCard'
 import ApprovalFlow from '../components/gates/ApprovalFlow'
+import TaskBoard from '../components/tasks/TaskBoard'
 import { ArrowLeft } from 'lucide-react'
 
 export default function GatePage() {
@@ -31,6 +32,7 @@ export default function GatePage() {
           status={gate.status}
           allItemsChecked={allItemsChecked}
         />
+        <TaskBoard gateId={gate.id} projectId={projectId!} />
       </div>
     </div>
   )
