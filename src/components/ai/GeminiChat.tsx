@@ -11,10 +11,10 @@ export default function GeminiChat({ projectId }: { projectId: string }) {
     bottomRef.current?.scrollIntoView({ behavior: 'smooth' })
   }, [messages])
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    sendMessage(input)
-    setInput('')
+    const success = await sendMessage(input)
+    if (success) setInput('')
   }
 
   return (
@@ -30,8 +30,8 @@ export default function GeminiChat({ projectId }: { projectId: string }) {
             Pergunte sobre este projeto, gates, tarefas ou próximos passos.
           </p>
         )}
-        {messages.map((msg, i) => (
-          <div key={i} className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
+        {messages.map((msg) => (
+          <div key={msg.id} className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
             <div className={`max-w-[85%] rounded-xl px-3 py-2 text-sm ${
               msg.role === 'user'
                 ? 'bg-indigo-600 text-white'
@@ -58,11 +58,13 @@ export default function GeminiChat({ projectId }: { projectId: string }) {
           onChange={e => setInput(e.target.value)}
           placeholder="Pergunte algo sobre o projeto..."
           disabled={loading}
+          aria-label="Mensagem para o assistente"
           className="flex-1 border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 disabled:opacity-50"
         />
         <button
           type="submit"
           disabled={loading || !input.trim()}
+          aria-label="Enviar mensagem"
           className="bg-indigo-600 text-white p-2 rounded-lg hover:bg-indigo-700 disabled:opacity-40"
         >
           <Send size={14} />

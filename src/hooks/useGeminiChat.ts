@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { supabase } from '../lib/supabase'
 
 export interface ChatMessage {
+  id: string
   role: 'user' | 'assistant'
   content: string
 }
@@ -11,10 +12,10 @@ export function useGeminiChat(projectId: string) {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
-  const sendMessage = async (text: string) => {
-    if (!text.trim() || loading) return
+  const sendMessage = async (text: string): Promise<boolean> => {
+    if (!text.trim() || loading) return false
 
-    const userMsg: ChatMessage = { role: 'user', content: text }
+    const userMsg: ChatMessage = { id: crypto.randomUUID(), role: 'user', content: text }
     setMessages(prev => [...prev, userMsg])
     setLoading(true)
     setError(null)
@@ -24,9 +25,13 @@ export function useGeminiChat(projectId: string) {
         body: { project_id: projectId, message: text },
       })
       if (error) throw error
-      setMessages(prev => [...prev, { role: 'assistant', content: data.reply }])
+      const reply = data?.reply
+      if (!reply) throw new Error('Empty response from assistant')
+      setMessages(prev => [...prev, { id: crypto.randomUUID(), role: 'assistant', content: reply }])
+      return true
     } catch (err) {
-      setError((err as Error).message)
+      setError(err instanceof Error ? err.message : String(err))
+      return false
     } finally {
       setLoading(false)
     }
