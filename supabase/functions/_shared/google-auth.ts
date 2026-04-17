@@ -14,6 +14,9 @@ export async function getGoogleAccessToken(scopes: string[]): Promise<string> {
   if (!saJson) throw new Error('GOOGLE_SERVICE_ACCOUNT_JSON secret not set')
 
   const sa: ServiceAccount = JSON.parse(saJson)
+  if (!sa.client_email || !sa.private_key || !sa.token_uri) {
+    throw new Error('GOOGLE_SERVICE_ACCOUNT_JSON is missing required fields (client_email, private_key, token_uri)')
+  }
   const now = Math.floor(Date.now() / 1000)
 
   // Build JWT header + payload
@@ -26,11 +29,12 @@ export async function getGoogleAccessToken(scopes: string[]): Promise<string> {
     iat: now,
   }
 
-  const encode = (obj: unknown) =>
-    btoa(JSON.stringify(obj))
-      .replace(/\+/g, '-')
-      .replace(/\//g, '_')
-      .replace(/=/g, '')
+  const encode = (obj: unknown): string => {
+    const bytes = new TextEncoder().encode(JSON.stringify(obj))
+    let str = ''
+    for (const b of bytes) str += String.fromCharCode(b)
+    return btoa(str).replace(/\+/g, '-').replace(/\//g, '_').replace(/=/g, '')
+  }
 
   const headerB64 = encode(header)
   const payloadB64 = encode(payload)
@@ -59,7 +63,9 @@ export async function getGoogleAccessToken(scopes: string[]): Promise<string> {
     new TextEncoder().encode(signingInput)
   )
 
-  const signatureB64 = btoa(String.fromCharCode(...new Uint8Array(signature)))
+  const signatureB64 = btoa(
+    new Uint8Array(signature).reduce((s, b) => s + String.fromCharCode(b), '')
+  )
     .replace(/\+/g, '-')
     .replace(/\//g, '_')
     .replace(/=/g, '')
@@ -82,5 +88,6 @@ export async function getGoogleAccessToken(scopes: string[]): Promise<string> {
   }
 
   const { access_token } = await tokenRes.json()
+  if (!access_token) throw new Error('Google token response did not include access_token')
   return access_token
 }
